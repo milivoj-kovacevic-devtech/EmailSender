@@ -14,6 +14,7 @@ namespace EmailSender
 
 	class Program
 	{
+		private static readonly SendingController SendingController = new SendingController();
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Program));
 
 		static void Main(string[] args)
@@ -45,9 +46,9 @@ namespace EmailSender
 
 			var contactsList = ConfigManager.GetContacts();
 
-			int indexLimit = contactsList.Count;
+			var indexLimit = contactsList.Count;
 
-			String[] attachments = new String[2];
+			var attachments = new String[2];
 			attachments[0] = ConfigManager.TextAttachment;
 			attachments[1] = ConfigManager.BinaryAttachment;
 
@@ -82,46 +83,7 @@ namespace EmailSender
 				{
 					// Actions for sending (and replying to) standard textual email messages
 					case EmailItemType.Email:
-
-						timeString = currentTime.ToString();
-						sender.Subject = "Email " + timeString;
-						sender.Body = "This email was sent at: " + timeString;
-						sender.ToEmailAddress = contactsList[r].EmailAddress;
-
-						if (rnd.Next(2) == 0)
-						{
-							sender.AttachmentLocation = attachments[rnd.Next(2)];
-						}
-
-						sender.SendMessage();
-
-						while (waitAfterSending > currentTime)
-						{
-							currentTime = DateTime.Now;
-							Thread.Sleep(10000);
-						}
-
-
-						reply.Body = "This is reply to test message sent using EWS Managed API. It was sent at " + currentTime;
-						reply.FromEmailAddress = contactsList[c].EmailAddress;
-
-						if (rnd.Next(2) == 0)
-						{
-							reply.AttachmentLocation = ConfigManager.ReplyAttachment;
-						}
-
-						reply.Reply(sender.ExtendedProperyDef, sender.TestUniqueId);
-
-						// TODO: Replace these times when shorter periods needed
-						//waitAfterReply = DateTime.Now.AddMinutes(rnd.Next(1, 3)); // Wait for sending new email
-						waitAfterReply = DateTime.Now.AddMinutes(rnd.Next(3, 13)); // Wait for sending new email
-						while (waitAfterReply < currentTime)
-						{
-							currentTime = DateTime.Now;
-						}
-
-
-						Console.WriteLine("email message was sent");
+						SendingController.SendEmail(sender, reply, contactsList[r], waitAfterSending, currentTime, attachments);
 						break;
 
 					// Actions for scheduling appointments and responding to meeting requests (accept, decline, accept tentatively)
