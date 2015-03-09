@@ -1,6 +1,5 @@
 ﻿using Microsoft.Exchange.WebServices.Data;
 using System;
-using System.Configuration;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -48,7 +47,7 @@ namespace EmailSender
 			Log.Info("EmailSendingAutomation init...");
 
 			// The ammount of time for the application to run
-			var timeToRun = Double.Parse(ConfigurationManager.AppSettings["HoursToWork"]);
+			var timeToRun = ConfigManager.HoursToWork;
 
 			var currentTime = DateTime.Now;
 			var timeToStop = DateTime.Now.AddHours(timeToRun);
@@ -67,28 +66,19 @@ namespace EmailSender
 			Array itemTypeValues = Enum.GetValues(typeof(EmailItemType));
 			Array meetingReplyValues = Enum.GetValues(typeof(MeetingReplyType));
 
-			var contactsList = new List<Contact>();
-			var emailUsernames = ConfigurationManager.GetSection("EmailUsernames") as NameValueCollection;
-			if (emailUsernames != null)
-			{
-				foreach (var userKey in emailUsernames.AllKeys)
-				{
-					string userName = emailUsernames.GetValues(userKey).FirstOrDefault();
-					contactsList.Add(new Contact(userName));
-				}
-			}
+			var contactsList = ConfigManager.GetContacts();
 
 			int indexLimit = contactsList.Count;
 
 			String[] attachments = new String[2];
-			attachments[0] = ConfigurationManager.AppSettings["AttachmentPath"] + "attachment.txt";
-			attachments[1] = ConfigurationManager.AppSettings["AttachmentPath"] + "attachment.exe";
+			attachments[0] = ConfigManager.TextAttachment;
+			attachments[1] = ConfigManager.BinaryAttachment;
 
 			// Read and delete old messages first
 			foreach (var contact in contactsList)
 			{
 				EmailSender messageReader = new EmailSender(contact.Credentials);
-				messageReader.ReadOldMessages(Boolean.Parse(ConfigurationManager.AppSettings["DeleteWeekOld"]));
+				messageReader.ReadOldMessages(ConfigManager.DeleteWeekOld);
 			}
 
 			while (currentTime < timeToStop)
@@ -140,7 +130,7 @@ namespace EmailSender
 
 						if (rnd.Next(2) == 0)
 						{
-							reply.AttachmentLocation = ConfigurationManager.AppSettings["AttachmentPath"] + "replyAttachment.txt";
+							reply.AttachmentLocation = ConfigManager.ReplyAttachment;
 						}
 
 						reply.Reply(sender.ExtendedProperyDef, sender.TestUniqueId);
