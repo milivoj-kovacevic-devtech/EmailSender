@@ -24,7 +24,7 @@ namespace EmailSender.Shared
 		// Gets date for scheduling meetings or creating tasks (1-3 days from today, at 9-16 o'clock)
 		public static DateTime GetDateForScheduling(DateTime currentTime, Random rnd)
 		{
-			DateTime date = currentTime.AddDays(rnd.Next(1, 3));
+			var date = currentTime.AddDays(rnd.Next(1, 3));
 
 			return new DateTime(date.Year, date.Month, date.Day, rnd.Next(9, 17), 0, 0);
 		}

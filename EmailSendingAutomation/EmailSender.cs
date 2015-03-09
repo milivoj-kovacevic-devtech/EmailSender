@@ -45,9 +45,9 @@ namespace EmailSender
 				Service.TraceEnabled = true;
 				Service.TraceFlags = TraceFlags.All;
 			}
-			catch (ArgumentNullException e)
+			catch (ArgumentNullException ex)
 			{
-				Log.Error("Unable to connect to EWS: " + e.ToString());
+				Log.Error("Unable to connect to EWS: " + ex.Message);
 				throw;
 			}
         }
@@ -96,29 +96,22 @@ namespace EmailSender
         public void Reply(string subject)
         {
 			Log.Info("EmailSender.Reply(string) init...");
-            //Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
-
-            SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.Sender, FromEmailAddress), new SearchFilter.IsEqualTo(EmailMessageSchema.Subject, subject));
+            var sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.Sender, FromEmailAddress), new SearchFilter.IsEqualTo(EmailMessageSchema.Subject, subject));
             var view = new ItemView(1);
 
 			try
 			{
-				FindItemsResults<Item> findResults = Service.FindItems(WellKnownFolderName.Inbox, sf, view);
-
-				EmailMessage reply = EmailMessage.Bind(Service, findResults.ElementAt(0).Id, BasePropertySet.IdOnly);
-
-				bool replyToAll = true;
-				ResponseMessage responseMessage = reply.CreateReply(replyToAll);
-
+				var findResults = Service.FindItems(WellKnownFolderName.Inbox, sf, view);
+				var reply = EmailMessage.Bind(Service, findResults.ElementAt(0).Id, BasePropertySet.IdOnly);
+			    var responseMessage = reply.CreateReply(true);
 				responseMessage.BodyPrefix = Body;
-
 				Log.Debug("EmailSender.Reply(string) - Sending message...");
 				responseMessage.SendAndSaveCopy();
 				Log.Debug("Success!");
-			} // TODO: Change exception type when caught for the first time
-			catch (Exception e)
+			}
+            catch (Exception ex)
 			{
-				Log.Error(e);
+				Log.Error("An error occured while replying: " + ex.Message);
 				throw;
 			}
 
@@ -129,29 +122,23 @@ namespace EmailSender
         {
 			Log.Info("EmailSender.Reply(ExtendedPropertyDefinition, Guid) init...");
 
-            //Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
-
             SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(extPropDef, testUniqueId.ToString()));
             var view = new ItemView(1);
 
-            FindItemsResults<Item> findResults = Service.FindItems(WellKnownFolderName.Inbox, sf, view);
+            var findResults = Service.FindItems(WellKnownFolderName.Inbox, sf, view);
 
 			try
 			{
-				EmailMessage reply = EmailMessage.Bind(Service, findResults.ElementAt(0).Id, BasePropertySet.IdOnly);
-
-				var replyToAll = true;
-				ResponseMessage responseMessage = reply.CreateReply(replyToAll);
-
+				var reply = EmailMessage.Bind(Service, findResults.ElementAt(0).Id, BasePropertySet.IdOnly);
+			    var responseMessage = reply.CreateReply(true);
 				responseMessage.BodyPrefix = Body;
-
 				Log.Debug("EmailSender.Reply(ExtendedPropertyDefinition, Guid) - Sending message...");
 				responseMessage.SendAndSaveCopy();
 				Log.Debug("Success!");
-			} // TODO: Change exception type when caught for the first time
-			catch (Exception e) 
+			}
+			catch (Exception ex) 
 			{
-				Log.Error(e);
+				Log.Error("An error occured while replying: " + ex.Message);
 				throw;
 			}
 
@@ -165,14 +152,15 @@ namespace EmailSender
 		public void ScheduleMeeting(bool recuring)
         {
 			Log.Info("EmailSender.ScheduleMeeting() init...");
-            var meeting = new Appointment(Service);
+            var meeting = new Appointment(Service)
+            {
+                Subject = Subject,
+                Body = new MessageBody(Body),
+                Start = StartTime,
+                End = StartTime.AddHours(Duration)
+            };
 
-            meeting.Subject = Subject;
-            meeting.Body = new MessageBody(Body);
-            meeting.Start = StartTime;
-			meeting.End = StartTime.AddHours(Duration);
-
-			if (recuring)
+		    if (recuring)
 			{
 				Log.Info("SheduleMeeting() - Recuring meeting...");
 				Recurrence recurrence = new Recurrence.DailyPattern();
@@ -185,13 +173,13 @@ namespace EmailSender
 
             if (RequiredAttendees != null)
             {
-                foreach (string attendee in RequiredAttendees)
+                foreach (var attendee in RequiredAttendees)
                     meeting.RequiredAttendees.Add(attendee);
             }
 
             if (OptionalAttendees != null)
             {
-                foreach (string attendee in OptionalAttendees)
+                foreach (var attendee in OptionalAttendees)
                     meeting.OptionalAttendees.Add(attendee);
             }
 
@@ -207,21 +195,18 @@ namespace EmailSender
 		public void ReplyToMeetingRequest(string subject, MeetingReplyType replyType)
 		{
 			Log.Info("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) init...");
-			//Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
 
 			SearchFilter searchFilter = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(AppointmentSchema.Subject, subject));
 			var view = new ItemView(1);
 
 			try
 			{
-				FindItemsResults<Item> findResults = Service.FindItems(WellKnownFolderName.Inbox, searchFilter, view);
+				var findResults = Service.FindItems(WellKnownFolderName.Inbox, searchFilter, view);
 
 				Console.WriteLine(findResults.Count() + " item(s) found");
 
-				MeetingRequest meetingReply = MeetingRequest.Bind(Service, findResults.ElementAt(0).Id);
-
+				var meetingReply = MeetingRequest.Bind(Service, findResults.ElementAt(0).Id);
 				meetingReply.Body = new MessageBody(Body);
-
 				Log.Debug("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) - Sending message...");
 
 				if (meetingReply.ConflictingMeetingCount > 0)
@@ -252,10 +237,10 @@ namespace EmailSender
 					}
 				}
 				Log.Debug("Success!");
-			} // TODO: Change exception type when caught for the first time 
-			catch (Exception e)
+			}
+			catch (Exception ex)
 			{
-				Log.Error(e);
+				Log.Error("An error occured while replying to meeting request: " + ex.Message);
 				throw;
 			}
 
@@ -271,12 +256,14 @@ namespace EmailSender
 			Log.Info("EmailSender.CreateTask(string, string, int, bool) init...");
 
             // Create the task item and set property values.
-            var task = new Task(Service);
-            task.Subject = subject;
-            task.Body = new MessageBody(body);
-            task.StartDate = StartTime;
-            task.DueDate = StartTime.AddDays(Duration);
-            task.ReminderMinutesBeforeStart = reminder;
+            var task = new Task(Service)
+            {
+                Subject = subject,
+                Body = new MessageBody(body),
+                StartDate = StartTime,
+                DueDate = StartTime.AddDays(Duration),
+                ReminderMinutesBeforeStart = reminder
+            };
             if (recuring)
             {
                 task.Recurrence = new Recurrence.DailyPattern(DateTime.Now.AddMinutes(10), 1);
@@ -291,18 +278,16 @@ namespace EmailSender
 		{
 			Log.Info("EmailSender.ReadOldMessages() init...");
 
-            //Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
-
 			SearchFilter searchFilter = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.IsRead, false));
 			var view = new ItemView(10);
 
-			FindItemsResults<Item> findResults = Service.FindItems(WellKnownFolderName.Inbox, searchFilter, view);
+			var findResults = Service.FindItems(WellKnownFolderName.Inbox, searchFilter, view);
 
 			Console.WriteLine(findResults.Count() + " unread item(s) found");
 
-			foreach (Item result in findResults)
+			foreach (var result in findResults)
 			{
-				EmailMessage messagge = EmailMessage.Bind(Service, result.Id);
+				var messagge = EmailMessage.Bind(Service, result.Id);
 				messagge.IsRead = true;
 				messagge.Update(ConflictResolutionMode.AlwaysOverwrite);
 				Console.WriteLine("Message with subject: " + messagge.Subject + " has been read!");
@@ -323,7 +308,7 @@ namespace EmailSender
 			var folders = new List<WellKnownFolderName> {WellKnownFolderName.Inbox, WellKnownFolderName.Calendar, WellKnownFolderName.DeletedItems, 
 					WellKnownFolderName.Drafts, WellKnownFolderName.SentItems, WellKnownFolderName.Tasks, WellKnownFolderName.JunkEmail};
 
-			foreach (WellKnownFolderName folder in folders)
+			foreach (var folder in folders)
 			{
 				DeleteItemsInFolder(folder);
 			}
@@ -338,9 +323,9 @@ namespace EmailSender
 			SearchFilter searchFilter = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsLessThan(EmailMessageSchema.DateTimeCreated, (DateTime.Now.AddDays(-7))));
 			var view = new ItemView(50);
 
-			FindItemsResults<Item> findResults = Service.FindItems(folderName, searchFilter, view);
+			var findResults = Service.FindItems(folderName, searchFilter, view);
 
-			foreach (Item result in findResults)
+			foreach (var result in findResults)
 			{
 				if (folderName == WellKnownFolderName.Calendar)
 				{
@@ -351,7 +336,7 @@ namespace EmailSender
 				else
 				{
 					Log.Debug("Deleting item...");
-					Item item = Item.Bind(Service, result.Id);
+					var item = Item.Bind(Service, result.Id);
 					item.Delete(DeleteMode.HardDelete);
 				}
 			}
