@@ -7,6 +7,7 @@ using System.Threading;
 using log4net;
 using log4net.Config;
 using System.Collections.Specialized;
+using EmailSender.Shared;
 
 namespace EmailSender
 {
@@ -14,30 +15,6 @@ namespace EmailSender
 	class Program
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Program));
-
-		// Increases array index, when limit is reached next value is 0 (zero)
-		public static int IncreaseIndex(int index, int limit)
-		{
-			int incIndex;
-			if (index == limit - 1)
-			{
-				incIndex = 0;
-			}
-			else
-			{
-				incIndex = index + 1;
-			}
-
-			return incIndex;
-		}
-
-		// Gets date for scheduling meetings or creating tasks (1-3 days from today, at 9-16 o'clock)
-		public static DateTime GetDateForScheduling(DateTime currentTime, Random rnd)
-		{
-			DateTime date = currentTime.AddDays(rnd.Next(1, 3));
-
-			return new DateTime(date.Year, date.Month, date.Day, rnd.Next(9, 17), 0, 0);
-		}
 
 		static void Main(string[] args)
 		{
@@ -88,8 +65,8 @@ namespace EmailSender
 				DateTime waitAfterSending = DateTime.Now.AddMinutes(rnd.Next(3, 13)); // Wait to reply to email
 				DateTime waitAfterReply;
 				int c = rnd.Next(indexLimit);
-				int r = IncreaseIndex(c, indexLimit);
-				int r1 = IncreaseIndex(r, indexLimit);
+				int r = Helper.IncreaseIndex(c, indexLimit);
+				int r1 = Helper.IncreaseIndex(r, indexLimit);
 
 				WebCredentials senderCredentials = contactsList[c].Credentials;
 				WebCredentials recieverCredentials = contactsList[r].Credentials;
@@ -152,7 +129,7 @@ namespace EmailSender
 						timeString = currentTime.ToString();
 						sender.Subject = "Meeting " + timeString;
 						sender.Body = "Test meeting scheduled at: " + timeString;
-						sender.StartTime = GetDateForScheduling(currentTime, rnd);
+						sender.StartTime = Helper.GetDateForScheduling(currentTime, rnd);
 						sender.Duration = rnd.Next(1, 5) / 2;
 						sender.Location = "Conf Room First Floor";
 						StringList requiredAttendees = new StringList();
@@ -197,7 +174,7 @@ namespace EmailSender
 					case EmailItemType.Task:
 						string taskSubject = "Task subject " + currentTime;
 						string taskBody = "This task was created at " + currentTime;
-						sender.StartTime = GetDateForScheduling(currentTime, rnd);
+						sender.StartTime = Helper.GetDateForScheduling(currentTime, rnd);
 						sender.Duration = rnd.Next(1, 6);
 						int reminder = 15;
 						recuring = Convert.ToBoolean(rnd.Next(2));
