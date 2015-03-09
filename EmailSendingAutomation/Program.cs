@@ -24,58 +24,36 @@ namespace EmailSender
 			XmlConfigurator.Configure();
 			Log.Info("EmailSendingAutomation init...");
 
-			// The ammount of time for the application to run
-			var timeToRun = ConfigManager.HoursToWork;
-
 			var currentTime = DateTime.Now;
-			var timeToStop = DateTime.Now.AddHours(timeToRun);
+			var timeToStop = DateTime.Now.AddHours(ConfigManager.HoursToWork);
 
 			var rnd = new Random();
 
-			// Used for storing current time as string for email subject and body
-			string timeString;
+			var msgType = EmailItemType.Email;
 
-			// Sets recurence for meetings and tasks
-			var recuring = false;
-
-			EmailItemType msgType = EmailItemType.Email;
-			MeetingReplyType meetingReplyType = MeetingReplyType.Accept;
-
-			Array itemTypeValues = Enum.GetValues(typeof(EmailItemType));
-			Array meetingReplyValues = Enum.GetValues(typeof(MeetingReplyType));
+			var itemTypeValues = Enum.GetValues(typeof(EmailItemType));
 
 			var contactsList = ConfigManager.GetContacts();
 
 			var indexLimit = contactsList.Count;
 
-			var attachments = new String[2];
-			attachments[0] = ConfigManager.TextAttachment;
-			attachments[1] = ConfigManager.BinaryAttachment;
+			var attachments = new string[2] {ConfigManager.TextAttachment, ConfigManager.BinaryAttachment};
 
 			// Read and delete old messages first
-			foreach (var contact in contactsList)
-			{
-				EmailSender messageReader = new EmailSender(contact.Credentials);
-				messageReader.ReadOldMessages(ConfigManager.DeleteWeekOld);
-			}
+			SendingController.DeleteOldMailsFromAllMailboxes(contactsList);
 
 			while (currentTime < timeToStop)
 			{
 				// TODO: Replace these times when shorter periods needed
 				//DateTime waitAfterSending = DateTime.Now.AddMinutes(rnd.Next(1, 5)); // Wait to reply to email
-				DateTime waitAfterSending = DateTime.Now.AddMinutes(rnd.Next(3, 13)); // Wait to reply to email
-				DateTime waitAfterReply;
+				var waitAfterSending = DateTime.Now.AddMinutes(rnd.Next(3, 13)); // Wait to reply to email
 				int c = rnd.Next(indexLimit);
 				int r = Helper.IncreaseIndex(c, indexLimit);
 				int r1 = Helper.IncreaseIndex(r, indexLimit);
 
-				WebCredentials senderCredentials = contactsList[c].Credentials;
-				WebCredentials recieverCredentials = contactsList[r].Credentials;
-				WebCredentials reciever1Credentials = contactsList[r1].Credentials;
-
-				EmailSender sender = new EmailSender(senderCredentials);
-				EmailSender reply = new EmailSender(recieverCredentials);
-				EmailSender reply1 = new EmailSender(reciever1Credentials);
+				var sender = new EmailSender(contactsList[c].Credentials);
+				var reply = new EmailSender(contactsList[r].Credentials);
+				var reply1 = new EmailSender(contactsList[r1].Credentials);
 
 				msgType = (EmailItemType)itemTypeValues.GetValue(rnd.Next(3));
 
@@ -88,66 +66,17 @@ namespace EmailSender
 
 					// Actions for scheduling appointments and responding to meeting requests (accept, decline, accept tentatively)
 					case EmailItemType.Meeting:
-						timeString = currentTime.ToString();
-						sender.Subject = "Meeting " + timeString;
-						sender.Body = "Test meeting scheduled at: " + timeString;
-						sender.StartTime = Helper.GetDateForScheduling(currentTime, rnd);
-						sender.Duration = rnd.Next(1, 5) / 2;
-						sender.Location = "Conf Room First Floor";
-						StringList requiredAttendees = new StringList();
-						requiredAttendees.Add(contactsList[r].EmailAddress);
-						sender.RequiredAttendees = requiredAttendees;
-
-						StringList optionalAttendees = new StringList();
-						optionalAttendees.Add(contactsList[r1].EmailAddress);
-						sender.OptionalAttendees = optionalAttendees;
-
-						recuring = Convert.ToBoolean(rnd.Next(2));
-						sender.ScheduleMeeting(recuring);
-
-						while (waitAfterSending > currentTime)
-						{
-							currentTime = DateTime.Now;
-							Thread.Sleep(10000);
-						}
-
-						timeString = currentTime.ToString();
-						reply.Body = "Reply from required attendee to test meeting sent at: " + timeString;
-						meetingReplyType = (MeetingReplyType)meetingReplyValues.GetValue(rnd.Next(3));
-						reply.ReplyToMeetingRequest(sender.Subject, meetingReplyType);
-
-						reply1.Body = "Reply from optional attendee to test meeting sent at " + timeString;
-						meetingReplyType = (MeetingReplyType)meetingReplyValues.GetValue(rnd.Next(3));
-						reply1.ReplyToMeetingRequest(sender.Subject, meetingReplyType);
-
-						// TODO: Replace these times when shorter periods needed
-						//waitAfterReply = DateTime.Now.AddMinutes(rnd.Next(1, 3)); // Wait for sending new email
-						waitAfterReply = DateTime.Now.AddMinutes(rnd.Next(3, 13)); // Wait for sending new email
-						while (waitAfterReply < currentTime)
-						{
-							currentTime = DateTime.Now;
-						}
-
-
-						Console.WriteLine("Meeting has been scheduled");
+						SendingController.ScheduleMeeting(sender, reply, reply1, contactsList[r], waitAfterSending, currentTime);
 						break;
 
 					// Actions for creating a task for current user
 					case EmailItemType.Task:
-						string taskSubject = "Task subject " + currentTime;
-						string taskBody = "This task was created at " + currentTime;
-						sender.StartTime = Helper.GetDateForScheduling(currentTime, rnd);
-						sender.Duration = rnd.Next(1, 6);
-						int reminder = 15;
-						recuring = Convert.ToBoolean(rnd.Next(2));
-						sender.CreateTask(taskSubject, taskBody, reminder, recuring);
-
-						Console.WriteLine("Task with subject " + taskSubject + " has been created");
+						SendingController.CreateTask(sender, currentTime);
 						break;
 
 					// If, for some reason, none of the 3 message types are passed to switch statement
 					default:
-						Console.WriteLine("Unknown message type");
+						Log.Error("Unknown message type");
 						break;
 				}
 
