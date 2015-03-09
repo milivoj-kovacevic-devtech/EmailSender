@@ -1,12 +1,6 @@
-﻿using Microsoft.Exchange.WebServices.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
+﻿using System;
 using log4net;
 using log4net.Config;
-using System.Collections.Specialized;
 using EmailSender.Shared;
 
 namespace EmailSender
@@ -16,6 +10,7 @@ namespace EmailSender
 	{
 		private static readonly SendingController SendingController = new SendingController();
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Program));
+        private const string UnknownMessage = "Unknown message type";
 
 		static void Main(string[] args)
 		{
@@ -24,14 +19,12 @@ namespace EmailSender
 			XmlConfigurator.Configure();
 			Log.Info("EmailSendingAutomation init...");
 
-			var currentTime = DateTime.Now;
+            var currentTime = DateTime.Now;
 			var timeToStop = DateTime.Now.AddHours(ConfigManager.HoursToWork);
 
 			var rnd = new Random();
 
-			var msgType = EmailItemType.Email;
-
-			var itemTypeValues = Enum.GetValues(typeof(EmailItemType));
+		    var itemTypeValues = Enum.GetValues(typeof(EmailItemType));
 
 			var contactsList = ConfigManager.GetContacts();
 
@@ -42,22 +35,22 @@ namespace EmailSender
 			// Read and delete old messages first
 			SendingController.DeleteOldMailsFromAllMailboxes(contactsList);
 
-			while (currentTime < timeToStop)
+		    while (currentTime < timeToStop)
 			{
 				// TODO: Replace these times when shorter periods needed
 				//DateTime waitAfterSending = DateTime.Now.AddMinutes(rnd.Next(1, 5)); // Wait to reply to email
 				var waitAfterSending = DateTime.Now.AddMinutes(rnd.Next(3, 13)); // Wait to reply to email
-				int c = rnd.Next(indexLimit);
-				int r = Helper.IncreaseIndex(c, indexLimit);
-				int r1 = Helper.IncreaseIndex(r, indexLimit);
+				var c = rnd.Next(indexLimit);
+				var r = Helper.IncreaseIndex(c, indexLimit);
+				var r1 = Helper.IncreaseIndex(r, indexLimit);
 
 				var sender = new EmailSender(contactsList[c].Credentials);
 				var reply = new EmailSender(contactsList[r].Credentials);
 				var reply1 = new EmailSender(contactsList[r1].Credentials);
 
-				msgType = (EmailItemType)itemTypeValues.GetValue(rnd.Next(3));
+				var msgType = (EmailItemType)itemTypeValues.GetValue(rnd.Next(3));
 
-				switch (msgType)
+			    switch (msgType)
 				{
 					// Actions for sending (and replying to) standard textual email messages
 					case EmailItemType.Email:
@@ -76,7 +69,8 @@ namespace EmailSender
 
 					// If, for some reason, none of the 3 message types are passed to switch statement
 					default:
-						Log.Error("Unknown message type");
+				        Log.Error(UnknownMessage);
+				        Console.WriteLine(UnknownMessage);
 						break;
 				}
 

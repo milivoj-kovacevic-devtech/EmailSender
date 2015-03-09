@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Configuration;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace EmailSender
+namespace EmailSender.Shared
 {
 	public static class ConfigManager
 	{
@@ -24,7 +22,7 @@ namespace EmailSender
 			{
 				foreach (var userKey in emailUsernames.AllKeys)
 				{
-					string userName = emailUsernames.GetValues(userKey).FirstOrDefault();
+					var userName = emailUsernames.GetValues(userKey).FirstOrDefault();
 					contactsList.Add(new Contact(userName));
 				}
 			}

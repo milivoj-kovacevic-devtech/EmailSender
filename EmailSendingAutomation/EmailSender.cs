@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Net;
-using System.Text;
 
 namespace EmailSender
 {
@@ -97,7 +96,7 @@ namespace EmailSender
         public void Reply(string subject)
         {
 			Log.Info("EmailSender.Reply(string) init...");
-            Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
+            //Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
 
             SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.Sender, FromEmailAddress), new SearchFilter.IsEqualTo(EmailMessageSchema.Subject, subject));
             var view = new ItemView(1);
@@ -130,7 +129,7 @@ namespace EmailSender
         {
 			Log.Info("EmailSender.Reply(ExtendedPropertyDefinition, Guid) init...");
 
-            Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
+            //Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
 
             SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(extPropDef, testUniqueId.ToString()));
             var view = new ItemView(1);
@@ -141,7 +140,7 @@ namespace EmailSender
 			{
 				EmailMessage reply = EmailMessage.Bind(Service, findResults.ElementAt(0).Id, BasePropertySet.IdOnly);
 
-				bool replyToAll = true;
+				var replyToAll = true;
 				ResponseMessage responseMessage = reply.CreateReply(replyToAll);
 
 				responseMessage.BodyPrefix = Body;
@@ -292,7 +291,7 @@ namespace EmailSender
 		{
 			Log.Info("EmailSender.ReadOldMessages() init...");
 
-			Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
+            //Folder inbox = Folder.Bind(Service, WellKnownFolderName.Inbox);
 
 			SearchFilter searchFilter = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.IsRead, false));
 			var view = new ItemView(10);
