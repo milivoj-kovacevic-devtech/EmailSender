@@ -8,7 +8,9 @@ namespace EmailSender
 
 	class Program
 	{
-		private static readonly SendingController SendingController = new SendingController();
+        private static readonly ConfigManager Config = new ConfigManager();
+
+		private static readonly SendingController SendingController = new SendingController(Config);
 		private static readonly ILog Log = LogManager.GetLogger(typeof(Program));
 
 		static void Main(string[] args)

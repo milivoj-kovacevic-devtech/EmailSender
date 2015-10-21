@@ -8,10 +8,17 @@ namespace EmailSender.Shared
 {
     public class SendingController
     {
+        private static ConfigManager _config;
+
+        public SendingController(ConfigManager config)
+        {
+            _config = config;
+        }
+
         public void SendEmail(Contact senderContact, Contact replyContact)
 		{
 			var rnd = new Random();
-            var attachments = new[] { ConfigManager.TextAttachment, ConfigManager.BinaryAttachment };
+            var attachments = new[] { _config.GetTextAttachmentPath(), _config.GetBinaryAttachmentPath() };
 		    var currentTime = DateTime.Now;
             var waitAfterSending = DateTime.Now.AddMinutes(rnd.Next(1, 5)); // Wait to reply to email
             var timeString = currentTime.ToString();
@@ -43,7 +50,7 @@ namespace EmailSender.Shared
 
 		    if (rnd.Next(2) == 0)
 			{
-				reply.AttachmentLocation = ConfigManager.ReplyAttachment;
+				reply.AttachmentLocation = _config.GetReplyAttachmentPath();
 			}
 
 			reply.Reply(sender.ExtendedProperyDef, sender.TestUniqueId);
@@ -134,7 +141,7 @@ namespace EmailSender.Shared
         {
             foreach (var messageReader in contactsList.Select(contact => new EmailSender(contact.Credentials)))
             {
-                messageReader.ReadOldMessages(ConfigManager.DeleteWeekOld);
+                messageReader.ReadOldMessages(_config.GetDeleteOldMailFlag());
             }
         }
     }

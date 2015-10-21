@@ -7,15 +7,34 @@ using log4net;
 
 namespace EmailSender.Shared
 {
-    public static class ConfigManager
+    public class ConfigManager
     {
         private static readonly ILog Log = LogManager.GetLogger(typeof (ConfigManager));
 
-        public static double HoursToWork = Double.Parse(ConfigurationManager.AppSettings["HoursToWork"]);
-        public static bool DeleteWeekOld = Boolean.Parse(ConfigurationManager.AppSettings["DeleteWeekOld"]);
-        public static string TextAttachment = ConfigurationManager.AppSettings["AttachmentPath"] + "attachment.txt";
-        public static string BinaryAttachment = ConfigurationManager.AppSettings["AttachmentPath"] + "attachment.exe";
-        public static string ReplyAttachment = ConfigurationManager.AppSettings["AttachmentPath"] + "replyAttachment.txt";
+        public bool GetDeleteOldMailFlag()
+        {
+            return GetBooleanConfigValue("DeleteWeekOld");
+        }
+
+        public string GetTextAttachmentPath()
+        {
+            return GetAttachmentsFolderPath() + "attachment.txt";
+        }
+        
+        public string GetBinaryAttachmentPath()
+        {
+            return GetAttachmentsFolderPath() + "attachment.exe";
+        }
+
+        public string GetReplyAttachmentPath()
+        {
+            return GetAttachmentsFolderPath() + "replyAttachment.txt";
+        }
+
+        private string GetAttachmentsFolderPath()
+        {
+            return GetStringConfigValue("AttachmentPath");
+        }
 
         public static List<Contact> GetContacts()
         {
@@ -36,6 +55,60 @@ namespace EmailSender.Shared
             }
 
             return contactsList;
+        }
+
+        protected virtual object ReadConfigValue(string configValue)
+        {
+            object returnValue = null;
+
+            try
+            {
+                returnValue = ConfigurationManager.AppSettings[configValue];
+            }
+            catch
+            {
+                // ignored
+            }
+
+            return returnValue;
+        }
+
+        protected string GetStringConfigValue(string configString)
+        {
+            var returnValue = string.Empty;
+
+            object configValue = ReadConfigValue(configString);
+            if (configValue != null)
+                returnValue = configValue.ToString();
+
+            return returnValue;
+        }
+
+        protected bool GetBooleanConfigValue(string configString)
+        {
+            var returnValue = false;
+
+            object configValue = ReadConfigValue(configString);
+            if (configValue != null)
+                returnValue = (configValue.ToString().ToLower() == "true");
+
+            return returnValue;
+        }
+
+        protected int GetIntegerConfigValue(string configString)
+        {
+            var liReturnValue = 0;
+
+            try
+            {
+                liReturnValue = Convert.ToInt32(ReadConfigValue(configString));
+            }
+            catch
+            {
+                // do nothing
+            }
+
+            return liReturnValue;
         }
     }
 }
