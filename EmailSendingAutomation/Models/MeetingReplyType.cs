@@ -1,4 +1,4 @@
-﻿namespace EmailSender
+﻿namespace EmailSender.Models
 {
 	public enum MeetingReplyType
 	{

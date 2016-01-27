@@ -1,17 +1,17 @@
-﻿using log4net;
-using Microsoft.Exchange.WebServices.Data;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Linq;
 using System.Net;
+using EmailSender.Models;
+using Microsoft.Exchange.WebServices.Data;
 
-namespace EmailSender
+namespace EmailSender.Shared
 {
 
     public class EmailSender
     {
-		private static readonly ILog Log = LogManager.GetLogger(typeof(EmailSender));
+		private static readonly ConfigManager Config = new ConfigManager();
+	    private static Logger _log;
 
         protected ExchangeService Service;
 
@@ -29,17 +29,18 @@ namespace EmailSender
         public StringList RequiredAttendees { get; set; }
         public StringList OptionalAttendees { get; set; }
 
-        public EmailSender(WebCredentials credentials)
+        public EmailSender(WebCredentials credentials, Logger log)
         {
+	        _log = log;
             ServicePointManager.ServerCertificateValidationCallback =
               ((sender, certificate, chain, sslPolicyErrors) => true);
 
-            Service = new ExchangeService(ExchangeVersion.Exchange2007_SP1);
+            Service = new ExchangeService(ExchangeVersion.Exchange2010);
 
 			try
 			{
 
-				Service.Url = new Uri(ConfigurationManager.AppSettings["ExchangeAPI"]);
+				Service.Url = new Uri(Config.GetExchangeApiUrl());
 				Service.Credentials = credentials;
 
 				Service.TraceEnabled = true;
@@ -47,7 +48,7 @@ namespace EmailSender
 			}
 			catch (ArgumentNullException ex)
 			{
-				Log.Error("Unable to connect to EWS: " + ex.Message);
+				_log.Error("Unable to connect to EWS: " + ex.Message);
 				throw;
 			}
         }
@@ -63,8 +64,8 @@ namespace EmailSender
 
         public void SendMessage()
         {
-			Log.Info("EmailSender.SendMessage() init...");
-            ExtendedProperyDef = CreateExtendedPropertyDefinition("EmailMessageId");
+			_log.Info("EmailSender.SendMessage() init...");
+			ExtendedProperyDef = CreateExtendedPropertyDefinition("EmailMessageId");
 
             TestUniqueId = Guid.NewGuid();
 
@@ -80,23 +81,23 @@ namespace EmailSender
 
             if (AttachmentLocation != null)
             {
-				Log.Info("EmailSender.SendMessage() - Adding attachment...");
-                email.Attachments.AddFileAttachment(AttachmentLocation);
+				_log.Info("EmailSender.SendMessage() - Adding attachment...");
+				email.Attachments.AddFileAttachment(AttachmentLocation);
             }
 
-			Log.Debug("EmailSender.SendMessage() - Sending message...");
-            email.SendAndSaveCopy();
-			Log.Debug("Success!");
+			_log.Debug("EmailSender.SendMessage() - Sending message...");
+			email.SendAndSaveCopy();
+			_log.Debug("Success!");
 
-            Console.WriteLine("An email with the subject '" + email.Subject + "' has been sent to '" + email.ToRecipients[0] + "' and saved to SendItems folder.");
+			Console.WriteLine("An email with the subject '" + email.Subject + "' has been sent to '" + email.ToRecipients[0] + "' and saved to SendItems folder.");
 
-			Log.Info("EmailSender.SendMessage() end.");
-        }
+			_log.Info("EmailSender.SendMessage() end.");
+		}
 
         public void Reply(string subject)
         {
-			Log.Info("EmailSender.Reply(string) init...");
-            var sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.Sender, FromEmailAddress), new SearchFilter.IsEqualTo(EmailMessageSchema.Subject, subject));
+			_log.Info("EmailSender.Reply(string) init...");
+			var sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.Sender, FromEmailAddress), new SearchFilter.IsEqualTo(EmailMessageSchema.Subject, subject));
             var view = new ItemView(1);
 
 			try
@@ -105,24 +106,24 @@ namespace EmailSender
 				var reply = EmailMessage.Bind(Service, findResults.ElementAt(0).Id, BasePropertySet.IdOnly);
 			    var responseMessage = reply.CreateReply(true);
 				responseMessage.BodyPrefix = Body;
-				Log.Debug("EmailSender.Reply(string) - Sending message...");
+				_log.Debug("EmailSender.Reply(string) - Sending message...");
 				responseMessage.SendAndSaveCopy();
-				Log.Debug("Success!");
+				_log.Debug("Success!");
 			}
             catch (Exception ex)
 			{
-				Log.Error("An error occured while replying: " + ex.Message);
+				_log.Error("An error occured while replying: " + ex.Message);
 				throw;
 			}
 
-			Log.Info("EmailSender.Reply(string) end.");
-        }
+			_log.Info("EmailSender.Reply(string) end.");
+		}
 
         public void Reply(ExtendedPropertyDefinition extPropDef, Guid testUniqueId)
         {
-			Log.Info("EmailSender.Reply(ExtendedPropertyDefinition, Guid) init...");
+			_log.Info("EmailSender.Reply(ExtendedPropertyDefinition, Guid) init...");
 
-            SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(extPropDef, testUniqueId.ToString()));
+			SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(extPropDef, testUniqueId.ToString()));
             var view = new ItemView(1);
 
             var findResults = Service.FindItems(WellKnownFolderName.Inbox, sf, view);
@@ -132,17 +133,17 @@ namespace EmailSender
 				var reply = EmailMessage.Bind(Service, findResults.ElementAt(0).Id, BasePropertySet.IdOnly);
 			    var responseMessage = reply.CreateReply(true);
 				responseMessage.BodyPrefix = Body;
-				Log.Debug("EmailSender.Reply(ExtendedPropertyDefinition, Guid) - Sending message...");
+				_log.Debug("EmailSender.Reply(ExtendedPropertyDefinition, Guid) - Sending message...");
 				responseMessage.SendAndSaveCopy();
-				Log.Debug("Success!");
+				_log.Debug("Success!");
 			}
 			catch (Exception ex) 
 			{
-				Log.Error("An error occured while replying: " + ex.Message);
+				_log.Error("An error occured while replying: " + ex.Message);
 				throw;
 			}
 
-			Log.Info("EmailSender.Reply(ExtendedPropertyDefinition, Guid) end.");
+			_log.Info("EmailSender.Reply(ExtendedPropertyDefinition, Guid) end.");
 		}
 
         /*
@@ -151,8 +152,8 @@ namespace EmailSender
 
 		public void ScheduleMeeting(bool recuring)
         {
-			Log.Info("EmailSender.ScheduleMeeting() init...");
-            var meeting = new Appointment(Service)
+			_log.Info("EmailSender.ScheduleMeeting() init...");
+			var meeting = new Appointment(Service)
             {
                 Subject = Subject,
                 Body = new MessageBody(Body),
@@ -162,7 +163,7 @@ namespace EmailSender
 
 		    if (recuring)
 			{
-				Log.Info("SheduleMeeting() - Recuring meeting...");
+				_log.Info("SheduleMeeting() - Recuring meeting...");
 				Recurrence recurrence = new Recurrence.DailyPattern();
 				recurrence.StartDate = StartTime;
 				recurrence.EndDate = StartTime.AddDays(10);
@@ -183,18 +184,18 @@ namespace EmailSender
                     meeting.OptionalAttendees.Add(attendee);
             }
 
-			Log.Debug("EmailSender.ScheduleMeeting() - Sending message...");
-            meeting.Save(SendInvitationsMode.SendToAllAndSaveCopy);
-			Log.Debug("Success!");
+			_log.Debug("EmailSender.ScheduleMeeting() - Sending message...");
+			meeting.Save(SendInvitationsMode.SendToAllAndSaveCopy);
+			_log.Debug("Success!");
 
-            Console.WriteLine("An appointment with the subject '" + meeting.Subject + "' has been scheduled.");
-		
-			Log.Info("EmailSender.ScheduleMeeting() end.");
+			Console.WriteLine("An appointment with the subject '" + meeting.Subject + "' has been scheduled.");
+
+			_log.Info("EmailSender.ScheduleMeeting() end.");
 		}
 
 		public void ReplyToMeetingRequest(string subject, MeetingReplyType replyType)
 		{
-			Log.Info("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) init...");
+			_log.Info("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) init...");
 
 			SearchFilter searchFilter = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(AppointmentSchema.Subject, subject));
 			var view = new ItemView(1);
@@ -207,12 +208,12 @@ namespace EmailSender
 
 				var meetingReply = MeetingRequest.Bind(Service, findResults.ElementAt(0).Id);
 				meetingReply.Body = new MessageBody(Body);
-				Log.Debug("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) - Sending message...");
+				_log.Debug("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) - Sending message...");
 
 				if (meetingReply.ConflictingMeetingCount > 0)
 				{
 					meetingReply.Body = new MessageBody("Sorry. I already have a meeting at requested time.");
-					Log.Debug("ConflictingMeetingCount > 0 - Decline meeting...");
+					_log.Debug("ConflictingMeetingCount > 0 - Decline meeting...");
 					meetingReply.Decline(true);
 				}
 				else
@@ -220,15 +221,15 @@ namespace EmailSender
 					switch (replyType)
 					{
 						case MeetingReplyType.Accept:
-							Log.Info("Accept meeting request...");
+							_log.Info("Accept meeting request...");
 							meetingReply.Accept(true);
 							break;
 						case MeetingReplyType.AcceptTentatively:
-							Log.Info("Accept tentatively meeting request...");
+							_log.Info("Accept tentatively meeting request...");
 							meetingReply.AcceptTentatively(true);
 							break;
 						case MeetingReplyType.Decline:
-							Log.Info("Decline meeting request...");
+							_log.Info("Decline meeting request...");
 							meetingReply.Decline(true);
 							break;
 						default:
@@ -236,15 +237,15 @@ namespace EmailSender
 							break;
 					}
 				}
-				Log.Debug("Success!");
+				_log.Debug("Success!");
 			}
 			catch (Exception ex)
 			{
-				Log.Error("An error occured while replying to meeting request: " + ex.Message);
+				_log.Error("An error occurred while replying to meeting request: " + ex.Message);
 				throw;
 			}
 
-			Log.Info("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) end.");
+			_log.Info("EmailSender.ReplyToMeetingRequest(string, MeetingReplyType) end.");
 		}
 
         /*
@@ -253,10 +254,10 @@ namespace EmailSender
 
         public void CreateTask(string subject, string body, int reminder, bool recuring)
         {
-			Log.Info("EmailSender.CreateTask(string, string, int, bool) init...");
+			_log.Info("EmailSender.CreateTask(string, string, int, bool) init...");
 
-            // Create the task item and set property values.
-            var task = new Task(Service)
+			// Create the task item and set property values.
+			var task = new Task(Service)
             {
                 Subject = subject,
                 Body = new MessageBody(body),
@@ -271,12 +272,12 @@ namespace EmailSender
 
             task.Save();
 
-			Log.Info("EmailSender.CreateTask(string, string, int, bool) end.");
-        }
+			_log.Info("EmailSender.CreateTask(string, string, int, bool) end.");
+		}
 
 		public void ReadOldMessages(bool deleteWeekOld)
 		{
-			Log.Info("EmailSender.ReadOldMessages() init...");
+			_log.Info("EmailSender.ReadOldMessages() init...");
 
 			SearchFilter searchFilter = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsEqualTo(EmailMessageSchema.IsRead, false));
 			var view = new ItemView(10);
@@ -298,12 +299,12 @@ namespace EmailSender
 				DeleteOldMessages();
 			}
 
-			Log.Info("EmailSender.ReadOldMessages() end.");
+			_log.Info("EmailSender.ReadOldMessages() end.");
 		}
 
 		private void DeleteOldMessages()
 		{
-			Log.Info("EmailSender.DeleteOldMessages() init...");
+			_log.Info("EmailSender.DeleteOldMessages() init...");
 
 			var folders = new List<WellKnownFolderName> {WellKnownFolderName.Inbox, WellKnownFolderName.Calendar, WellKnownFolderName.DeletedItems, 
 					WellKnownFolderName.Drafts, WellKnownFolderName.SentItems, WellKnownFolderName.Tasks, WellKnownFolderName.JunkEmail};
@@ -312,13 +313,13 @@ namespace EmailSender
 			{
 				DeleteItemsInFolder(folder);
 			}
-			Log.Info("EmailSender.DeleteOldMessages() end.");
+			_log.Info("EmailSender.DeleteOldMessages() end.");
 		}
 
 		// Helper method for deleting items older than one week in specified folder
 		private void DeleteItemsInFolder(WellKnownFolderName folderName)
 		{
-			Log.Info("EmailSender.DeleteItemsInFolder() init...");
+			_log.Info("EmailSender.DeleteItemsInFolder() init...");
 
 			SearchFilter searchFilter = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.IsLessThan(EmailMessageSchema.DateTimeCreated, (DateTime.Now.AddDays(-7))));
 			var view = new ItemView(50);
@@ -329,20 +330,55 @@ namespace EmailSender
 			{
 				if (folderName == WellKnownFolderName.Calendar)
 				{
-					Log.Debug("Deleting meeting...");
+					_log.Debug("Deleting meeting...");
 					var meeting = Appointment.Bind(Service, result.Id);
 					meeting.Delete(DeleteMode.HardDelete, SendCancellationsMode.SendToNone);
 				}
 				else
 				{
-					Log.Debug("Deleting item...");
+					_log.Debug("Deleting item...");
 					var item = Item.Bind(Service, result.Id);
 					item.Delete(DeleteMode.HardDelete);
 				}
 			}
 
-			Log.Info("EmailSender.DeleteItemsInFolder() end.");
+			_log.Info("EmailSender.DeleteItemsInFolder() end.");
 		}
 
-    }
+	    private static Guid JournalExtendedPropertyGuid
+		{
+			get { return new Guid("0006200A-0000-0000-C000-000000000046"); }
+		}
+
+	    private static Guid ContactExtendedPropertyGuid
+	    {
+		    get
+		    {
+			    return new Guid("00062008-0000-0000-C000-000000000046");
+		    }
+	    }
+
+		public void CreateJournalItem(Journal journal)
+	    {
+			var typeProp = new ExtendedPropertyDefinition(JournalExtendedPropertyGuid, 34560, MapiPropertyType.String);
+		    var typePropDesc = new ExtendedPropertyDefinition(JournalExtendedPropertyGuid, 34578, MapiPropertyType.String);
+			var startTimeProp = new ExtendedPropertyDefinition(JournalExtendedPropertyGuid, 34566, MapiPropertyType.SystemTime);
+			var endTimeProp = new ExtendedPropertyDefinition(JournalExtendedPropertyGuid, 34568, MapiPropertyType.SystemTime);
+			var companiesProp = new ExtendedPropertyDefinition(ContactExtendedPropertyGuid, 34105, MapiPropertyType.StringArray);
+			var iconIndexProp = new ExtendedPropertyDefinition(4224, MapiPropertyType.Integer);
+
+			var newJournal = new EmailMessage(Service);
+			newJournal.ItemClass = "IPM.Activity";
+			newJournal.Subject = journal.Subject;
+			newJournal.Body = journal.Body;
+			newJournal.SetExtendedProperty(typeProp, journal.Type);
+			newJournal.SetExtendedProperty(typePropDesc, journal.TypeDescription);
+			newJournal.SetExtendedProperty(startTimeProp, journal.StartTime);
+			newJournal.SetExtendedProperty(endTimeProp, journal.EndTime);
+			newJournal.SetExtendedProperty(iconIndexProp, journal.IconIndex);
+			newJournal.SetExtendedProperty(companiesProp, journal.Companies);
+
+			newJournal.Save(WellKnownFolderName.Journal);
+		}
+	}
 }

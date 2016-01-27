@@ -1,9 +1,10 @@
-﻿namespace EmailSender
+namespace EmailSender.Models
 {
     public enum EmailItemType 
 	{ 
 		Meeting, 
 		Email, 
-		Task 
+		Task,
+		Journal 
 	}
 }
